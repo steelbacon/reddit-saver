@@ -1,0 +1,8 @@
+# Personal data never goes in this repo
+Reddit Saved/
+cache/
+notes.json
+*.zip
+export_*
+__pycache__/
+settings.json

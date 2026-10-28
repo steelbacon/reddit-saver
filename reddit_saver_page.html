@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Saved Reddit</title>
+<style>
+  :root {
+    --bg: #15161a;
+    --surface: #1d1f25;
+    --surface-2: #252830;
+    --line: #30333c;
+    --text: #d8d4cb;
+    --muted: #9b978e;
+    --accent: #d4a25e;
+    --accent-soft: #3a3024;
+    --link: #9fb7d6;
+    --target: #2b3326;
+    --target-line: #8fae6e;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.65 Verdana, "Segoe UI", Tahoma, sans-serif;
+    letter-spacing: 0.01em;
+  }
+  a { color: var(--link); }
+  button, input, select { font: inherit; color: inherit; }
+
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  }
+  header h1 { font-size: 20px; margin: 0 12px 0 0; font-weight: 600; }
+  #search {
+    flex: 1 1 260px; min-width: 0; padding: 9px 14px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line);
+  }
+  #search:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { background: var(--surface); border: 0; padding: 8px 14px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  select { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+
+  .layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 0; }
+  nav {
+    border-right: 1px solid var(--line); padding: 14px 10px;
+    position: sticky; top: 64px; height: calc(100vh - 64px); overflow-y: auto;
+  }
+  nav button {
+    display: flex; justify-content: space-between; gap: 8px; width: 100%;
+    background: none; border: 0; border-radius: 8px; padding: 7px 10px;
+    text-align: left; cursor: pointer;
+  }
+  nav button:hover { background: var(--surface); }
+  nav button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  nav .count { color: var(--muted); font-size: 15px; }
+  nav .name { overflow-wrap: anywhere; }
+
+  main { padding: 18px 24px 60px; max-width: 980px; }
+  #summary { color: var(--muted); margin: 0 0 14px; }
+  .month {
+    font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--accent); margin: 26px 0 10px; font-weight: 600;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 12px;
+  }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 15px; color: var(--muted); }
+  .badge { background: var(--surface-2); color: var(--text); border-radius: 6px; padding: 0 8px; }
+  .badge.sub { color: var(--accent); }
+  .title { font-size: 18px; margin: 6px 0 4px; font-weight: 600; overflow-wrap: anywhere; }
+  .title a { color: var(--text); text-decoration: none; }
+  .title a:hover { text-decoration: underline; }
+  .body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 0; }
+  .body.clamp { max-height: 9.9em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+  .quote { border-left: 3px solid var(--target-line); background: var(--target); padding: 8px 12px; border-radius: 0 8px 8px 0; margin-top: 10px; }
+  .actions { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .actions button {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 5px 12px; cursor: pointer; font-size: 15px;
+  }
+  .note { color: var(--muted); font-size: 15px; font-style: italic; margin-top: 8px; }
+
+  .thread { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .c { margin: 10px 0 0; padding-left: 14px; border-left: 2px solid var(--line); }
+  .c.target { border-left-color: var(--target-line); }
+  .c.target > .own { background: var(--target); border-radius: 0 8px 8px 0; padding: 6px 10px; margin-left: -14px; padding-left: 14px; }
+  .c .meta { font-size: 14px; }
+  .c details > summary { cursor: pointer; color: var(--muted); font-size: 14px; list-style: none; }
+  .c details > summary::-webkit-details-marker { display: none; }
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+  .tools { display: flex; gap: 8px; }
+  .tools button {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 12px; cursor: pointer;
+  }
+  .tools button:hover, .actions button:hover { border-color: var(--accent); }
+  .mynote {
+    margin-top: 10px; padding: 8px 12px; border-radius: 8px;
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .mynote .label { color: var(--accent); font-size: 14px; display: block; }
+  textarea.noteedit {
+    width: 100%; margin-top: 10px; min-height: 5em; resize: vertical;
+    background: var(--bg); color: var(--text); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 8px 12px; font: inherit;
+  }
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 16px; display: none; z-index: 10;
+  }
+
+  @media (max-width: 760px) {
+    body { font-size: 16px; }
+    header { position: static; padding: 12px 16px; }
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; max-height: 220px; border-right: 0; border-bottom: 1px solid var(--line); }
+    main { padding: 14px 16px 50px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>My Saved Reddit</h1>
+  <input id="search" type="search" placeholder="Search titles, text and comments" aria-label="Search">
+  <div class="seg" role="group" aria-label="Show">
+    <button data-kind="all" aria-pressed="true">All</button>
+    <button data-kind="post" aria-pressed="false">Posts</button>
+    <button data-kind="comment" aria-pressed="false">Comments</button>
+  </div>
+  <select id="sort" aria-label="Sort">
+    <option value="new">Newest first</option>
+    <option value="old">Oldest first</option>
+    <option value="saved">Order I saved them</option>
+  </select>
+  <div class="tools">
+    <button id="forAI" title="Download one file with all items and your notes">Download for AI</button>
+    <button id="backup" title="Save your notes as a file">Back up notes</button>
+  </div>
+</header>
+<div id="toast" role="status"></div>
+<div class="layout">
+  <nav id="subs" aria-label="Subreddits"></nav>
+  <main>
+    <p id="summary"></p>
+    <div id="list"></div>
+  </main>
+</div>
+
+<footer id="footer" style="color:var(--muted);font-size:14px;text-align:center;padding:20px 16px 30px"></footer>
+<script id="data" type="application/json">__SAVED_DATA__</script>
+<script>
+(function () {
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const items = DATA.items;
+  const state = { sub: "all", kind: "all", sort: "new", q: "" };
+  const keyOf = (it) => it.kind + "_" + it.id;
+  const SETTINGS = DATA.settings || {};
+  const OWNER = SETTINGS.name || "";
+  const ASSISTANT = SETTINGS.assistant || "";
+  const exportName = "reddit_saved_for_" + (ASSISTANT || "ai").toLowerCase().replace(/[^a-z0-9]+/g, "_") + ".md";
+
+  // Notes: start from notes.json (made by the script), browser copy wins.
+  const notes = Object.assign({}, DATA.notes || {});
+  try { Object.assign(notes, JSON.parse(localStorage.getItem("savedRedditNotes") || "{}")); } catch (e) {}
+  function setNote(it, text) {
+    const k = keyOf(it);
+    if (text.trim()) notes[k] = text.trim(); else delete notes[k];
+    try { localStorage.setItem("savedRedditNotes", JSON.stringify(notes)); }
+    catch (e) { toast("Couldn't keep the note in this browser. Use Back up notes."); }
+  }
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.style.display = "block";
+    clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.style.display = "none"; }, 3500);
+  }
+  function download(name, text, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  try { Object.assign(state, JSON.parse(localStorage.getItem("savedRedditView") || "{}"), { q: "" }); } catch (e) {}
+
+  const $ = (sel) => document.querySelector(sel);
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const fmtDate = (t) => { if (!t) return ""; const d = new Date(t * 1000); return d.getDate() + " " + months[d.getMonth()].slice(0, 3) + " " + d.getFullYear(); };
+  const monthKey = (t) => { if (!t) return "Date unknown"; const d = new Date(t * 1000); return months[d.getMonth()] + " " + d.getFullYear(); };
+  const when = (it) => it.kind === "comment" ? (it.comment_created || it.post_created) : it.post_created;
+
+  // Plain text with safe, clickable web links.
+  function textWithLinks(target, text) {
+    const re = /https?:\/\/[^\s<>()\]]+/g;
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      target.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const a = el("a", null, m[0]); a.href = m[0]; a.target = "_blank"; a.rel = "noopener noreferrer";
+      target.appendChild(a);
+      last = m.index + m[0].length;
+    }
+    target.appendChild(document.createTextNode(text.slice(last)));
+    return target;
+  }
+
+  function searchText(it) {
+    if (it._s == null) {
+      const parts = [it.sub, it.title, it.slug_title, it.author, it.selftext, it.comment_body, it.comment_author];
+      const walk = (cs) => (cs || []).forEach((c) => { parts.push(c.body, c.author); walk(c.replies); });
+      walk(it.comments);
+      it._s = parts.filter(Boolean).join("\n").toLowerCase();
+    }
+    return it._s + "\n" + (notes[keyOf(it)] || "").toLowerCase();
+  }
+
+  function save() {
+    try { localStorage.setItem("savedRedditView", JSON.stringify({ sub: state.sub, kind: state.kind, sort: state.sort })); } catch (e) {}
+  }
+
+  function renderSubs() {
+    const counts = {};
+    items.forEach((it) => { if (state.kind === "all" || it.kind === state.kind) counts[it.sub] = (counts[it.sub] || 0) + 1; });
+    const nav = $("#subs");
+    nav.textContent = "";
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const names = Object.keys(counts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    if (state.sub !== "all" && !counts[state.sub]) state.sub = "all";
+    [["all", "All subreddits", total]].concat(names.map((n) => [n, "r/" + n, counts[n]])).forEach(([key, label, n]) => {
+      const b = el("button");
+      b.setAttribute("aria-pressed", String(state.sub === key));
+      b.append(el("span", "name", label), el("span", "count", String(n)));
+      b.onclick = () => { state.sub = key; save(); renderSubs(); renderList(); window.scrollTo(0, 0); };
+      nav.appendChild(b);
+    });
+  }
+
+  function renderComment(c, depth) {
+    const box = el("div", "c" + (c.target ? " target" : ""));
+    if (c.target) box.id = "target-" + c.id;
+    const meta = el("div", "meta");
+    meta.append(el("span", null, "u/" + c.author));
+    if (c.created) meta.append(el("span", null, fmtDate(c.created)));
+    if (c.score != null) meta.append(el("span", null, c.score + " points"));
+    if (c.target) meta.append(el("span", "badge sub", "you saved this"));
+    const own = el("div", "own");
+    own.append(meta, textWithLinks(el("div", "body"), c.body || ""));
+    box.append(own);
+    if (c.replies && c.replies.length) {
+      const det = el("details");
+      const n = countAll(c.replies);
+      const label = () => (det.open ? "▾ Hide " : "▸ Show ") + n + " repl" + (n === 1 ? "y" : "ies");
+      det.open = depth < 3 || hasTarget(c.replies);
+      det.append(el("summary", null, label()));
+      det.addEventListener("toggle", () => { det.firstChild.textContent = label(); });
+      c.replies.forEach((r) => det.append(renderComment(r, depth + 1)));
+      box.append(det);
+    }
+    if (c.more) box.append(el("div", "note", c.more + " more repl" + (c.more === 1 ? "y" : "ies") + " on Reddit"));
+    return box;
+  }
+  const countAll = (cs) => (cs || []).reduce((n, c) => n + 1 + countAll(c.replies), 0);
+  const hasTarget = (cs) => (cs || []).some((c) => c.target || hasTarget(c.replies));
+
+  function renderCard(it) {
+    const card = el("article", "card");
+    const meta = el("div", "meta");
+    meta.append(el("span", "badge sub", "r/" + it.sub), el("span", "badge", it.kind === "post" ? "Post" : "Comment"));
+    const t = when(it);
+    if (t) meta.append(el("span", null, fmtDate(t)));
+    if (it.nsfw) meta.append(el("span", "badge", "NSFW"));
+    card.append(meta);
+
+    const title = el("div", "title");
+    const a = el("a", null, it.title || (it.gone ? "This item is gone from Reddit" : (it.slug_title ? it.slug_title.charAt(0).toUpperCase() + it.slug_title.slice(1) : "Saved " + it.kind)));
+    a.href = it.link; a.target = "_blank"; a.rel = "noopener noreferrer";
+    title.append(a);
+    card.append(title);
+
+    if (it.author) card.append(el("div", "meta", "Post by u/" + it.author + (it.score != null ? " · " + it.score + " points" : "") + (it.num_comments != null ? " · " + it.num_comments + " comments" : "")));
+    if (it.url) { const u = el("div", "body"); textWithLinks(u, it.url); card.append(u); }
+
+    if (it.kind === "comment" && it.comment_body != null) {
+      const q = el("div", "quote");
+      q.append(el("div", "meta", "Your saved comment, by u/" + it.comment_author + (it.comment_score != null ? " · " + it.comment_score + " points" : "")));
+      q.append(textWithLinks(el("div", "body"), it.comment_body));
+      card.append(q);
+    }
+
+    let bodyEl = null;
+    if (it.selftext) {
+      bodyEl = textWithLinks(el("div", "body" + (it.selftext.length > 600 ? " clamp" : "")), it.selftext);
+      card.append(bodyEl);
+    }
+
+    const actions = el("div", "actions");
+    if (bodyEl && bodyEl.classList.contains("clamp")) {
+      const more = el("button", null, "Show full text");
+      more.onclick = () => { const c = bodyEl.classList.toggle("clamp"); more.textContent = c ? "Show full text" : "Show less"; };
+      actions.append(more);
+    }
+    if (it.comments && it.comments.length) {
+      const n = countAll(it.comments);
+      const btn = el("button", null, "Show conversation (" + n + ")");
+      let thread = null;
+      btn.onclick = () => {
+        if (!thread) {
+          thread = el("div", "thread");
+          it.comments.forEach((c) => thread.append(renderComment(c, 0)));
+          if (it.more) thread.append(el("div", "note", it.more + " more comment(s) on Reddit"));
+          card.append(thread);
+          const tgt = thread.querySelector(".c.target");
+          if (tgt) tgt.scrollIntoView({ block: "center" });
+        } else thread.hidden = !thread.hidden;
+        btn.textContent = (thread.hidden ? "Show" : "Hide") + " conversation (" + n + ")";
+      };
+      actions.append(btn);
+    }
+    if (actions.childNodes.length) card.append(actions);
+    actions.append(noteButton(it, card));
+    if (!actions.parentNode) card.append(actions);
+    showNote(it, card);
+    if (!it.fetched) card.append(el("div", "note", "Only the link is saved so far" + (it.kind === "comment" ? " (title is from the post you saved a comment in)" : "") + ". Run Reddit Saver again later to fetch the full post."));
+    return card;
+  }
+
+  function renderList() {
+    const q = state.q.trim().toLowerCase();
+    let list = items.filter((it) =>
+      (state.kind === "all" || it.kind === state.kind) &&
+      (state.sub === "all" || it.sub === state.sub) &&
+      (!q || searchText(it).includes(q)));
+    if (state.sort === "saved") list.sort((a, b) => a.order - b.order);
+    else {
+      const dir = state.sort === "new" ? -1 : 1;
+      list.sort((a, b) => {
+        const ta = when(a), tb = when(b);
+        if (!ta && !tb) return a.order - b.order;
+        if (!ta) return 1;
+        if (!tb) return -1;
+        return dir * (ta - tb);
+      });
+    }
+    const where = state.sub === "all" ? "all subreddits" : "r/" + state.sub;
+    $("#summary").textContent = list.length + " saved item" + (list.length === 1 ? "" : "s") + " in " + where + (q ? ' matching "' + state.q.trim() + '"' : "");
+
+    const box = $("#list");
+    box.textContent = "";
+    if (!list.length) { box.append(el("div", "empty", "Nothing here. Try another search or subreddit.")); return; }
+    let lastMonth = null;
+    const frag = document.createDocumentFragment();
+    list.forEach((it) => {
+      if (state.sort !== "saved") {
+        const mk = monthKey(when(it));
+        if (mk !== lastMonth) { frag.append(el("div", "month", mk)); lastMonth = mk; }
+      }
+      frag.append(renderCard(it));
+    });
+    box.append(frag);
+  }
+
+  document.querySelectorAll(".seg button").forEach((b) => {
+    b.setAttribute("aria-pressed", String(b.dataset.kind === state.kind));
+    b.onclick = () => {
+      state.kind = b.dataset.kind; save();
+      document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      renderSubs(); renderList();
+    };
+  });
+  const sortSel = $("#sort");
+  sortSel.value = state.sort;
+  sortSel.onchange = () => { state.sort = sortSel.value; save(); renderList(); };
+  let timer;
+  $("#search").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value; renderList(); }, 150); });
+
+  if (DATA.version) $("#footer").textContent = "Reddit Saver v" + DATA.version + " · page made " + new Date(DATA.made).toLocaleString();
+  function showNote(it, card) {
+    let box = card.querySelector(".mynote");
+    const text = notes[keyOf(it)];
+    if (!text) { if (box) box.remove(); return; }
+    if (!box) { box = el("div", "mynote"); card.querySelector(".actions").after(box); }
+    box.textContent = "";
+    box.append(el("span", "label", "My note"), document.createTextNode(text));
+  }
+  function noteButton(it, card) {
+    const b = el("button", null, notes[keyOf(it)] ? "Edit note" : "Add note");
+    b.onclick = () => {
+      if (card.querySelector("textarea.noteedit")) return;
+      const ta = el("textarea", "noteedit");
+      ta.placeholder = "Why did I save this? Ideas, projects, reminders...";
+      ta.value = notes[keyOf(it)] || "";
+      const old = card.querySelector(".mynote"); if (old) old.remove();
+      card.querySelector(".actions").after(ta);
+      ta.focus();
+      const done = () => { setNote(it, ta.value); ta.remove(); showNote(it, card); b.textContent = notes[keyOf(it)] ? "Edit note" : "Add note"; };
+      ta.addEventListener("blur", done);
+      ta.addEventListener("keydown", (e) => { if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) ta.blur(); });
+    };
+    return b;
+  }
+
+  function exportFile() {
+    const fmt = (t) => t ? new Date(t * 1000).toISOString().slice(0, 10) : "unknown";
+    const short = (t, n) => { t = (t || "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n) + "..." : t; };
+    const bySub = {};
+    items.forEach((it) => (bySub[it.sub] = bySub[it.sub] || []).push(it));
+    const subs = Object.keys(bySub).sort((a, b) => bySub[b].length - bySub[a].length || a.localeCompare(b));
+    const noted = items.filter((it) => notes[keyOf(it)]).length;
+    const L = [];
+    L.push("# " + (OWNER ? OWNER + "'s" : "My") + " saved Reddit items", "");
+    L.push("Made with Reddit Saver v" + (DATA.version || "?") + " on " + new Date().toISOString().slice(0, 10) + ".");
+    L.push(items.length + " saved items in " + subs.length + " subreddits. " + noted + " have a note" + (OWNER ? " from " + OWNER : "") + " explaining why they were saved.");
+    L.push("Within each subreddit, items are in the order they appear in Reddit's data export. Titles may be shortened where only the link was available.", "");
+    L.push("## Subreddits at a glance", "");
+    subs.forEach((s) => L.push("- r/" + s + ": " + bySub[s].length));
+    subs.forEach((s) => {
+      L.push("", "## r/" + s + " (" + bySub[s].length + ")", "");
+      bySub[s].sort((a, b) => a.order - b.order).forEach((it) => {
+        const title = it.title || (it.slug_title ? it.slug_title.charAt(0).toUpperCase() + it.slug_title.slice(1) : "(no title)");
+        L.push("- **" + (it.kind === "post" ? "Post" : "Comment") + ":** " + title);
+        const date = it.kind === "comment" ? (it.comment_created || it.post_created) : it.post_created;
+        if (date) L.push("  - Date: " + fmt(date));
+        if (notes[keyOf(it)]) L.push("  - " + (OWNER ? OWNER + "'s note" : "My note") + ": " + notes[keyOf(it)].replace(/\n+/g, " / "));
+        if (it.kind === "comment" && it.comment_body) L.push("  - Saved comment: " + short(it.comment_body, 400));
+        if (it.selftext) L.push("  - Text: " + short(it.selftext, 400));
+        if (it.comments && it.comments.length) {
+          const top = it.comments.filter((c) => !c.target).slice(0, 3).map((c) => short(c.body, 200));
+          if (top.length) L.push("  - Top comments: " + top.map((t) => '"' + t + '"').join(" | "));
+        }
+        if (it.gone) L.push("  - (Deleted from Reddit)");
+        L.push("  - Link: " + it.link);
+      });
+    });
+    return L.join("\n") + "\n";
+  }
+  document.getElementById("forAI").textContent = "Download for " + (ASSISTANT || "AI");
+  document.getElementById("forAI").onclick = () => {
+    download(exportName, exportFile(), "text/markdown");
+    toast("Saved " + exportName + " to your Downloads.");
+  };
+  document.getElementById("backup").onclick = () => {
+    download("notes.json", JSON.stringify(notes, null, 2), "application/json");
+    toast("Saved notes.json. Put it in the Reddit Saved folder to keep your notes safe.");
+  };
+
+  renderSubs();
+  renderList();
+})();
+</script>
+</body>
+</html>
